@@ -298,7 +298,77 @@ let s=state.histOverrides?.[hi]?.s||original,reds=state.histOverrides?.[hi]?.red
 return `<article class="history-card"><h3>${date} · ${type}</h3>${statTable(s,reds)}${state.admin?`<button class="btn" onclick="editOldHistory(${hi})">✏️ Korrigera statistik</button>`:''}</article>`;
 }).join('');$('sideBody').innerHTML=`<h2>Nya spelkvällar</h2><div class="history-grid">${cards||'<p>Inga nya spelkvällar ännu.</p>'}</div><h2>Historiska spelkvällar 2025–2026</h2><p class="muted">Historiska kvällar som innehöll flera turneringar har bara samlad kvällsstatistik. Dubbletten 13 april 2025 räknas en gång.</p><div class="history-grid">${old}</div>`}
 function renderStats(){let p=state.statsPeriod||'2026';let opts=[['2026','2026'],['2025','2025'],['all','Alla år – All Time'],['current','Aktuell spelkväll']];let sums=[[0,0,0],[0,0,0],[0,0,0]];if(p!=='current'){for(let [hi,h] of HIST.entries()){if(p!=='all'&&!h[0].startsWith(p))continue;let o=state.histOverrides?.[hi];(o?.s||h[2]).forEach((v,i)=>{sums[i][0]+=v[0];sums[i][1]+=v[1];sums[i][2]+=(o?.reds||h[3]||[])[i]||0})}for(let e of state.evenings){if(p!=='all'&&!e.date.startsWith(p))continue;for(let t of e.tournaments)for(let m of t.matches)m.s.forEach((v,i)=>v.forEach((n,j)=>sums[i][j]+=n))}}else sums=totals();$('sideBody').innerHTML=`<div class="history-card"><h2>Välj statistikperiod</h2><select id="yearStats" onchange="state.statsPeriod=this.value;save();renderStats()" style="padding:12px;background:#102d5e;color:white;border:2px solid #4ba7ff;border-radius:5px">${opts.map(([v,l])=>`<option value="${v}" ${p===v?'selected':''}>${l}</option>`).join('')}</select><h2>${p==='all'?'Genom tiderna':p==='current'?'Aktuell spelkväll':p}</h2>${statTable(sums,sums.map(x=>x[2]))}</div><p class="muted">Poäng = mål + assist. Röda kort ingår inte i poängsumman.</p>`}
-function renderAwards(){let e=activeE()||state.evenings[0];if(!e){$('sideBody').innerHTML='<p>Inga spelkvällar ännu.</p>';return}let s=[[0,0,0],[0,0,0],[0,0,0]];for(let t of e.tournaments)for(let m of t.matches)m.s.forEach((v,i)=>v.forEach((n,j)=>s[i][j]+=n));let winner=s.map((v,i)=>({i,pts:v[0]+v[1]})).sort((a,b)=>b.pts-a.pts)[0];$('sideBody').innerHTML=`<div class="award"><h2>🏆 Kvällens BABYBOY: ${PEOPLE[winner.i]}</h2>${mini(winner.i)} ${winner.pts} poäng – ${s[winner.i][0]} mål och ${s[winner.i][1]} assist<p>HOLMGREN: ”Siffrorna talar sitt tydliga språk. ${PEOPLE[winner.i]} har varit kvällens huvudperson!”</p></div><div class="history-card"><h2>Slutställning</h2>${statTable(s)}</div><p class="muted">Fler priser och morgondagens löpsedel utvecklas i en senare version.</p>`}
+// V8 awards: 50 deterministic variants per commentator (10 openings x 5 endings).
+const AWARD_H_OPEN=[
+ 'Vilken kväll! {winner} har samlat ihop {points} poäng, med {goals} mål och {assists} assist.',
+ 'Det här är siffror som får kommentatorsbåset att skaka: {winner}, {goals} mål och {assists} assist!',
+ 'Håll i er! {winner} kliver fram med {points} poäng och tar kvällens stora pris.',
+ 'Det är inte ofta man ser en sådan här insats. {winner} står på {goals} mål och {assists} framspelningar.',
+ 'Vi har räknat om protokollet två gånger: {winner} landar på {points} poäng!',
+ 'Där har vi kvällens huvudperson! {winner} levererar {goals} mål och {assists} assist.',
+ 'Från första avspark till sista visslan: {winner} är kvällens Babyboy med {points} poäng.',
+ 'Statistiken ljuger inte! {winner} vinner med {goals} mål och {assists} assist.',
+ 'Vilken föreställning av {winner}! {points} poäng är kvällens facit.',
+ 'Och priset går till... {winner}! {goals} mål, {assists} assist, totalt {points} poäng.'
+];
+const AWARD_H_END=[
+ ' {runner} jagade med {runnerPoints} poäng, men nådde inte hela vägen.',
+ ' {runner} slutade på {runnerPoints} poäng. Det var kamp ända in i kaklet!',
+ ' Med {runnerPoints} poäng fick {runner} nöja sig med att applådera vinnaren.',
+ ' {runner} gjorde {runnerGoals} mål, men kvällens totalpoäng avgjorde.',
+ ' Och {third} får slicka såren efter sina {thirdPoints} poäng.'
+];
+const AWARD_G_OPEN=[
+ 'Ja du Holmgren, {winner} har alltså gjort {goals} mål och {assists} assist. Inte illa för en babyboy!',
+ 'Det är väl bara att lyfta på kepsen för {winner}. {points} poäng är rätt saftigt.',
+ 'Jag säger så här: {winner} har varit överallt i kväll. {goals} baljor och {assists} framspelningar!',
+ 'Det var fart på {winner} i dag. {points} poäng, och ändå hinner han väl med en snus.',
+ 'När {winner} får upp ångan är det bara att hålla i sig. {goals} mål talar sitt språk.',
+ 'Nu får vi ge {winner} lite kärlek. {assists} assist är ju rena presentutdelningen.',
+ 'Det här blir en kväll som {winner} kommer att påminna de andra om länge.',
+ 'Jag trodde nästan resultattavlan gått sönder, men nej: {winner} har {points} poäng.',
+ 'Det är inte varje dag någon kombinerar {goals} mål med {assists} assist så där.',
+ 'Jag vill se en ordentlig prisutdelning till {winner} efter de här {points} poängen.'
+];
+const AWARD_G_END=[
+ ' {runner} får trösta sig med {runnerPoints} poäng och en kall blick från kaptenen.',
+ ' {third} stannade på {thirdPoints} poäng. Det får bli nya tag nästa spelkväll.',
+ ' {runner} satte {runnerGoals} mål men fick ändå se priset glida iväg.',
+ ' {runner} hade {runnerAssists} assist. Någon måste ju passa också, eller hur?',
+ ' {third} och {runner} får väl dela på äran att ha varit med på planen.'
+];
+function awardHash(v){let h=2166136261;for(let i=0;i<v.length;i++)h=Math.imul(h^v.charCodeAt(i),16777619);return h>>>0}
+function awardTotals(e){const s=[[0,0,0],[0,0,0],[0,0,0]];for(const t of e.tournaments||[])for(const m of t.matches||[])for(let i=0;i<3;i++)for(let j=0;j<3;j++)s[i][j]+=(m.s?.[i]?.[j]||0);return s}
+function awardData(e){
+ const s=awardTotals(e);
+ const ranked=s.map((v,i)=>({i,goals:v[0],assists:v[1],points:v[0]+v[1]})).sort((a,b)=>b.points-a.points||b.goals-a.goals||a.i-b.i);
+ const top=ranked[0], runner=ranked[1],third=ranked[2];
+ const tied=ranked.filter(x=>x.points===top.points&&x.goals===top.goals);
+ const names=tied.map(x=>PEOPLE[x.i]);
+ const vars={winner:names.join(' och '),goals:top.goals,assists:top.assists,points:top.points,runner:PEOPLE[runner.i],runnerPoints:runner.points,runnerGoals:runner.goals,runnerAssists:runner.assists,third:PEOPLE[third.i],thirdPoints:third.points};
+ const signature=JSON.stringify({id:e.id,s,closed:!!e.closed});
+ const h=awardHash(String(e.id));
+ const pick=(opens,ends,offset)=>opens[(h+offset)%10]+ends[(Math.floor(h/10)+offset)%5];
+ const fill=t=>t.replace(/\{(\w+)\}/g,(_,k)=>String(vars[k]??''));
+ let holm=fill(pick(AWARD_H_OPEN,AWARD_H_END,0));
+ let glenn=fill(pick(AWARD_G_OPEN,AWARD_G_END,7));
+ if(tied.length>1){holm+=' Det är delad förstaplats!';glenn+=' Lika poäng och lika många mål – då får de dela på äran!'}
+ return {signature,winners:tied.map(x=>x.i),holm,glenn,s,ranked};
+}
+function awardEscape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderAwards(){
+ let e=activeE()||state.evenings[0];if(!e){$('sideBody').innerHTML='<p>Inga spelkvällar ännu.</p>';return}
+ const current=awardData(e);
+ // Save a stable prize on the evening record when the admin visits Priser.
+ // Recompute only if the underlying match statistics change.
+ if(state.admin&&cloudReady&&(!e.babyboyAward||e.babyboyAward.signature!==current.signature)){
+   e.babyboyAward={signature:current.signature,winners:current.winners,holm:current.holm,glenn:current.glenn};save();
+ }
+ const prize=e.babyboyAward?.signature===current.signature?e.babyboyAward:current;
+ const names=prize.winners.map(i=>PEOPLE[i]).join(' & ');
+ const top=current.ranked[0];
+ $('sideBody').innerHTML=`<div class="award"><h2>🏆 Kvällens BABYBOY: ${awardEscape(names)}</h2>${prize.winners.map(i=>mini(i)).join(' ')}<p>${top.points} poäng – ${top.goals} mål och ${top.assists} assist</p><p><strong>🎙️ HOLMGREN:</strong> ”${awardEscape(prize.holm)}”</p><p><strong>🎙️ GLENN:</strong> ”${awardEscape(prize.glenn)}”</p></div><div class="history-card"><h2>Slutställning</h2>${statTable(current.s)}</div>`;
+}
 function renderSettings(){$('sideBody').innerHTML=`<div class="history-card"><h2>🎙️ Kommentator</h2><button class="btn" onclick="toggleHolm();go('settings')">${state.live?'Stäng av':'Slå på'} livekommentarer</button><p>Priser och sammanfattningar visas även när livekommentarerna är av.</p><h2>Statistik</h2><button class="btn" onclick="state.hidden=!state.hidden;save();render();go('settings')">${state.hidden?'Visa':'Dölj'} siffror på matchvyn</button><h2>Data</h2><button class="btn green" onclick="exportData()">Exportera säkerhetskopia</button><label>Importera säkerhetskopia</label><input type="file" accept="application/json" onchange="importData(this)"><p class="muted">Statistiken synkroniseras till Supabase. Endast admin kan ändra.</p><h2>Rött kort</h2><p>För att undvika feltryck registreras röda kort via en separat 2-sekundersknapp.</p></div>`}
 let redTimer=null,redEl=null,redStart=0,redInterval=null;function startRed(i,b,e){if(e)e.preventDefault();if(!state.admin||!activeM()||activeM().finished)return;stopRed();redEl=b;redStart=Date.now();let fill=b.querySelector('.red-fill');try{if(e)b.setPointerCapture(e.pointerId)}catch(_){}redInterval=setInterval(()=>{let v=Math.min(100,(Date.now()-redStart)/20);if(fill)fill.style.width=v+'%';if(v>=100){stopRed();activeM().s[i][2]++;save();render();notify('🟥 Rött kort registrerat för '+PEOPLE[i]);say('Rött kort för '+PEOPLE[i]+'! Vilken dramatik!')}},35)}function stopRed(){if(redInterval)clearInterval(redInterval);redInterval=null;if(redEl){let f=redEl.querySelector('.red-fill');if(f)f.style.width='0'}redEl=null}
 function exportData(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='fifa-babyboys-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
