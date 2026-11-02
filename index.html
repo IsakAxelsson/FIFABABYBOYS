@@ -29,6 +29,22 @@
 /* V8 red-card indicator: keep existing goals, assists and points unchanged. */
 .stats-overlay .red-card-count{display:flex;align-items:center;justify-content:center;gap:3px;flex:0 0 auto;min-width:0;font-size:.67em;font-weight:900;color:#e8f2ff;white-space:nowrap;line-height:1;padding:0 2px;opacity:.94}
 .stats-overlay .red-card-count span:first-child{font-size:.92em}
+
+/* V8: separate synchronized red-card referee animation; no existing layout modified. */
+.v8-red-referee{position:fixed;inset:0;z-index:999999;display:grid;place-items:center;pointer-events:none;animation:v8RedOverlay 2.6s both}
+.v8-red-panel{display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 35px;background:#061b3cee;border:5px solid #ffdc46;border-radius:16px;box-shadow:0 12px 50px #000a;animation:v8RefEnter 2.6s both}
+.v8-ref-figure{position:relative;width:116px;height:155px;image-rendering:pixelated;filter:drop-shadow(5px 7px 0 #0007)}
+.v8-ref-head{position:absolute;left:40px;top:12px;width:39px;height:42px;background:#e5a16c;border:5px solid #251e27;box-shadow:inset 0 9px #4a302b}
+.v8-ref-shirt{position:absolute;left:24px;top:61px;width:68px;height:57px;background:repeating-linear-gradient(90deg,#10151e 0 14px,#e5e5e5 14px 28px);border:5px solid #10151e}
+.v8-ref-arm{position:absolute;left:86px;top:28px;width:15px;height:71px;background:#e5a16c;border:4px solid #251e27;transform-origin:bottom;animation:v8RaiseCard 2.6s both}
+.v8-ref-card{position:absolute;left:88px;top:4px;width:26px;height:37px;background:#f02a36;border:4px solid #520b14;box-shadow:inset 3px 3px #ff6670;animation:v8CardFlash 2.6s both}
+.v8-ref-legs{position:absolute;left:31px;top:115px;width:59px;height:35px;background:linear-gradient(90deg,#151a27 0 40%,transparent 40% 60%,#151a27 60%);border-bottom:7px solid #0b0c14}
+.v8-red-label{font-weight:1000;font-size:clamp(18px,4vw,29px);color:#ffdc46;text-shadow:3px 3px #000;white-space:nowrap}
+@keyframes v8RedOverlay{0%,100%{opacity:0}10%,88%{opacity:1}}
+@keyframes v8RefEnter{0%{transform:translateX(-120vw) scale(.8)}23%,85%{transform:translateX(0) scale(1)}100%{transform:translateX(120vw)}}
+@keyframes v8RaiseCard{0%,15%{transform:rotate(65deg)}35%,100%{transform:rotate(0)}}
+@keyframes v8CardFlash{0%,35%{opacity:0}45%,100%{opacity:1}}
+@media(max-width:500px){.v8-red-panel{padding:14px 18px}.v8-red-label{font-size:18px}}
 </style>
 <style id="goteborg-theme">
 /* Göteborg-stadion är den enda bakgrunden. Alla UI-element är separata. */
@@ -268,8 +284,42 @@ function add(i,kind){
  lastSeenLiveEventId=ev.id;
  save();render();showLiveEvent(ev);
 }
+// Ten rotating, player-specific red-card quips. Selection is saved in the shared event.
+const RED_CARD_LINES=[
+ n=>`RÖTT KORT! ${n} lämnar planen. Domaren har sett nog – och det har nog vi också!`,
+ n=>`${n} får syna det röda! Äntligen någon som lyckas få mer uppmärksamhet än målskyttarna.`,
+ n=>`OJ OJ OJ! ${n} åker ut! Den tacklingen hade inte ens en arg brevbärare levererat.`,
+ n=>`Det är rött för ${n}! En prestation så usel att domaren vill slippa se fortsättningen.`,
+ n=>`${n} har spelat färdigt. Dagens enda rena träff var tydligen mot motståndaren.`,
+ n=>`Domaren visar rött för ${n}! Nu blir det gott om tid att fundera på sina livsval.`,
+ n=>`${n} ser rött! Till och med VAR-rummet skrattar åt den där katastrofen.`,
+ n=>`UT MED HONOM! ${n} får rött kort. En dusch och en lång ursäkt till lagkamraterna väntar.`,
+ n=>`${n} blir utvisad! Det där var inte försvarsspel, det var en jobbansökan till brottningslandslaget.`,
+ n=>`RÖTT KORT till ${n}! Nu är lagets största säkerhetsrisk åtminstone utanför planen.`
+];
+let redCardQuipIndex=-1;
+function redCardQuote(i){
+ redCardQuipIndex=(redCardQuipIndex+1+Math.floor(Math.random()*9))%RED_CARD_LINES.length;
+ return RED_CARD_LINES[redCardQuipIndex](PEOPLE[i]);
+}
+function showRedReferee(i){
+ const old=document.querySelector('.v8-red-referee');if(old)old.remove();
+ const x=document.createElement('div');x.className='v8-red-referee';
+ const panel=document.createElement('div');panel.className='v8-red-panel';
+ const figure=document.createElement('div');figure.className='v8-ref-figure';
+ figure.innerHTML='<div class="v8-ref-head"></div><div class="v8-ref-shirt"></div><div class="v8-ref-arm"></div><div class="v8-ref-card"></div><div class="v8-ref-legs"></div>';
+ const label=document.createElement('div');label.className='v8-red-label';label.textContent='🟥 RÖTT KORT – '+PEOPLE[i].toUpperCase()+'!';
+ panel.append(figure,label);x.append(panel);document.body.append(x);
+ setTimeout(()=>x.remove(),2600);
+}
 function showLiveEvent(ev){
- if(!ev||ev.kind!=='goal'||!Number.isInteger(ev.player)||ev.player<0||ev.player>=POSES.length)return;
+ if(!ev||!Number.isInteger(ev.player)||ev.player<0||ev.player>=POSES.length)return;
+ if(ev.kind==='red'){
+  showRedReferee(ev.player);
+  if(ev.quote)say(ev.quote);
+  return;
+ }
+ if(ev.kind!=='goal')return;
  celebrate(ev.player,ev.poseIndex);
  if(ev.quote)say(ev.quote);
 }
@@ -415,7 +465,11 @@ function renderAwards(){
  $('sideBody').innerHTML=`<div class="award"><h2>🏆 Kvällens BABYBOY: ${awardEscape(names)}</h2>${prize.winners.map(i=>mini(i)).join(' ')}<p>${top.points} poäng – ${top.goals} mål och ${top.assists} assist</p><p><strong>🎙️ HOLMGREN:</strong> ”${awardEscape(prize.holm)}”</p><p><strong>🎙️ GLENN:</strong> ”${awardEscape(prize.glenn)}”</p></div><div class="history-card"><h2>Slutställning</h2>${statTable(current.s)}</div>`;
 }
 function renderSettings(){$('sideBody').innerHTML=`<div class="history-card"><h2>🎙️ Kommentator</h2><button class="btn" onclick="toggleHolm();go('settings')">${state.live?'Stäng av':'Slå på'} livekommentarer</button><p>Priser och sammanfattningar visas även när livekommentarerna är av.</p><h2>Statistik</h2><button class="btn" onclick="state.hidden=!state.hidden;save();render();go('settings')">${state.hidden?'Visa':'Dölj'} siffror på matchvyn</button><h2>Data</h2><button class="btn green" onclick="exportData()">Exportera säkerhetskopia</button><label>Importera säkerhetskopia</label><input type="file" accept="application/json" onchange="importData(this)"><p class="muted">Statistiken synkroniseras till Supabase. Endast admin kan ändra.</p><h2>Rött kort</h2><p>För att undvika feltryck registreras röda kort via en separat 2-sekundersknapp.</p></div>`}
-let redTimer=null,redEl=null,redStart=0,redInterval=null;function startRed(i,b,e){if(e)e.preventDefault();if(!state.admin||!activeM()||activeM().finished)return;stopRed();redEl=b;redStart=Date.now();let fill=b.querySelector('.red-fill');try{if(e)b.setPointerCapture(e.pointerId)}catch(_){}redInterval=setInterval(()=>{let v=Math.min(100,(Date.now()-redStart)/20);if(fill)fill.style.width=v+'%';if(v>=100){stopRed();activeM().s[i][2]++;save();render();notify('🟥 Rött kort registrerat för '+PEOPLE[i]);say('Rött kort för '+PEOPLE[i]+'! Vilken dramatik!')}},35)}function stopRed(){if(redInterval)clearInterval(redInterval);redInterval=null;if(redEl){let f=redEl.querySelector('.red-fill');if(f)f.style.width='0'}redEl=null}
+let redTimer=null,redEl=null,redStart=0,redInterval=null;function startRed(i,b,e){if(e)e.preventDefault();if(!state.admin||!activeM()||activeM().finished)return;stopRed();redEl=b;redStart=Date.now();let fill=b.querySelector('.red-fill');try{if(e)b.setPointerCapture(e.pointerId)}catch(_){}redInterval=setInterval(()=>{let v=Math.min(100,(Date.now()-redStart)/20);if(fill)fill.style.width=v+'%';if(v>=100){stopRed();activeM().s[i][2]++;
+ const now=Date.now();
+ const ev={id:now+'-red-'+Math.random().toString(36).slice(2),at:now,kind:'red',player:i,quote:redCardQuote(i),matchId:activeM().id};
+ state.lastLiveEvent=ev;lastSeenLiveEventId=ev.id;
+ save();render();notify('🟥 Rött kort registrerat för '+PEOPLE[i]);showLiveEvent(ev)}},35)}function stopRed(){if(redInterval)clearInterval(redInterval);redInterval=null;if(redEl){let f=redEl.querySelector('.red-fill');if(f)f.style.width='0'}redEl=null}
 function exportData(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='fifa-babyboys-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
 function importData(el){if(!state.admin)return notify('Admin krävs');let f=el.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.evenings))throw Error('Fel format');if(confirm('Ersätta testdata med säkerhetskopian?')){state=d;save();go('play');notify('Importen klar')}}catch(e){alert('Kunde inte importera filen: '+e.message)}};r.readAsText(f)}
 function safeUrl(x){try{let u=new URL(x);return ['https:','http:'].includes(u.protocol)?u.href:'#'}catch{return '#'}}
