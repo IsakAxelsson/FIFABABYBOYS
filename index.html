@@ -16,6 +16,15 @@
 @media (min-width:521px){
   .game-action{top:66.5%;height:4.6%;}
 }
+
+/* V8: Pixel-Glenn — the original Holmgren card and quote keep their dimensions. */
+.scene .holm-central{position:relative!important;overflow:visible;}
+.scene .holm-status{display:none!important;}
+.scene .holm-central .glenn-pixel{position:absolute;left:calc(100% + 9px);top:50%;transform:translateY(-50%);width:91px;z-index:5;pointer-events:none;filter:drop-shadow(3px 4px 0 #00132c);}
+.scene .holm-central .glenn-pixel svg{display:block;width:100%;height:auto;image-rendering:pixelated;shape-rendering:crispEdges;}
+.scene .holm-central .glenn-pixel figcaption{font:900 10px/1.2 system-ui,sans-serif;color:#ffdc4e;text-align:center;text-shadow:2px 2px #071a3a;margin-top:2px;}
+@media(max-width:700px){.scene .holm-central .glenn-pixel{width:57px;left:calc(100% + 4px)}.scene .holm-central .glenn-pixel figcaption{font-size:7px}.scene .holm-central{margin-right:58px!important;width:min(500px,calc(100% - 76px))!important}}
+@media(max-width:390px){.scene .holm-central .glenn-pixel{width:45px}.scene .holm-central{margin-right:47px!important;width:calc(100% - 59px)!important}}
 </style>
 <style id="goteborg-theme">
 /* Göteborg-stadion är den enda bakgrunden. Alla UI-element är separata. */
@@ -471,4 +480,23 @@ render();
 startCloud();
 })();
 </script>
-<div style="position:fixed;top:8px;right:8px;z-index:2147483647;background:#ffdc4e;color:#071a3a;border:2px solid #071a3a;padding:6px 12px;border-radius:8px;font:800 13px system-ui;pointer-events:none">V8 · TESTMILJÖ</div></body></html>
+<div style="position:fixed;top:8px;right:8px;z-index:2147483647;background:#ffdc4e;color:#071a3a;border:2px solid #071a3a;padding:6px 12px;border-radius:8px;font:800 13px system-ui;pointer-events:none">V8 · TESTMILJÖ</div>
+<script>
+/* V8 Pixel-Glenn: add a second portrait without changing the synced quote logic. */
+(function(){
+  function mountGlenn(){
+    var panel=document.querySelector('.scene .holm-central');
+    if(!panel || panel.querySelector('.glenn-pixel')) return;
+    var fig=document.createElement('figure');
+    fig.className='glenn-pixel';
+    fig.setAttribute('aria-label','Pixel-Glenn, andra kommentator');
+    fig.style.margin='0';
+    fig.innerHTML=GLENN_SVG+'<figcaption>PIXEL-GLENN</figcaption>';
+    panel.appendChild(fig);
+  }
+  var GLENN_SVG='<svg viewBox="0 0 64 84" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pixel-Glenn med grått lockigt hår och blå jacka"><rect x="9" y="73" width="46" height="9" fill="#06152b"/><rect x="13" y="63" width="38" height="13" fill="#2e8dd1"/><rect x="9" y="69" width="9" height="12" fill="#1b548a"/><rect x="46" y="69" width="9" height="12" fill="#1b548a"/><rect x="26" y="61" width="12" height="13" fill="#f1bc8e"/><rect x="16" y="27" width="32" height="34" fill="#e7ae7e"/><rect x="12" y="35" width="5" height="16" fill="#cf8b60"/><rect x="47" y="35" width="5" height="16" fill="#cf8b60"/><rect x="13" y="22" width="39" height="17" fill="#b6b7bd"/><rect x="18" y="16" width="28" height="12" fill="#d0d1d5"/><rect x="23" y="12" width="9" height="8" fill="#a4a6ad"/><rect x="34" y="11" width="10" height="9" fill="#bcbec5"/><rect x="9" y="26" width="9" height="11" fill="#969aa4"/><rect x="47" y="24" width="9" height="13" fill="#969aa4"/><rect x="18" y="37" width="12" height="4" fill="#2c3043"/><rect x="34" y="37" width="12" height="4" fill="#2c3043"/><rect x="20" y="41" width="8" height="5" fill="#fff7e9"/><rect x="36" y="41" width="8" height="5" fill="#fff7e9"/><rect x="23" y="42" width="3" height="4" fill="#273849"/><rect x="39" y="42" width="3" height="4" fill="#273849"/><rect x="29" y="48" width="7" height="5" fill="#ca855f"/><rect x="25" y="56" width="15" height="3" fill="#874b46"/><rect x="18" y="67" width="9" height="5" fill="#fff5e5"/><rect x="37" y="67" width="9" height="5" fill="#fff5e5"/><rect x="29" y="66" width="6" height="10" fill="#061b38"/></svg>';
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountGlenn);
+  else mountGlenn();
+})();
+</script>
+</body></html>
