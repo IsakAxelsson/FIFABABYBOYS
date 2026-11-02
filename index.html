@@ -111,7 +111,7 @@ function save(){
  }).catch(e=>{console.error(e);notify('⚠️ Sparning misslyckades! Kontrollera anslutningen.');}).finally(()=>{pendingWrites--;if(!pendingWrites)scheduleRealtimeReload();});
 }
 async function loadCloud(){
- try{const cloud=await fetchCloud();state={...EMPTY(),...cloud,admin:!!sessionToken()};cloudReady=true;render();if(document.getElementById('side').classList.contains('open')){let v=document.getElementById('sideTitle')?.textContent||'';if(v.includes('Historik'))renderHistory();else if(v.includes('Statistik'))renderStats();}
+ try{const cloud=await fetchCloud();const wasReady=cloudReady;const incomingEvent=cloud.lastLiveEvent;const unseen=wasReady&&incomingEvent?.id&&incomingEvent.id!==lastSeenLiveEventId;state={...EMPTY(),...cloud,admin:!!sessionToken()};cloudReady=true;if(incomingEvent?.id)lastSeenLiveEventId=incomingEvent.id;render();if(unseen&&Date.now()-incomingEvent.at<15000)showLiveEvent(incomingEvent);if(document.getElementById('side').classList.contains('open')){let v=document.getElementById('sideTitle')?.textContent||'';if(v.includes('Historik'))renderHistory();else if(v.includes('Statistik'))renderStats();}
  }catch(e){console.error(e);cloudReady=false;state.admin=false;render();notify('⚠️ Kunde inte ansluta till databasen.');}
 }
 async function adminLogin(){
@@ -136,6 +136,7 @@ function toggleMode(){
  modal('🔐 Admininloggning',`<p class="muted">Logga in med din registrerade Supabase-adress. Användarnamnet på hemsidan visas som Admin.</p><label>E-postadress</label><input id="adminEmail" type="email" autocomplete="username"><label>Lösenord</label><input id="adminPassword" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')adminLogin()"><button class="btn green" style="margin-top:12px" onclick="adminLogin()">Logga in</button>`);
 }
 let realtimeConnected=false, pendingWrites=0, realtimeClient=null, realtimeReloadTimer=null;
+let lastSeenLiveEventId=null;
 function scheduleRealtimeReload(){
  clearTimeout(realtimeReloadTimer);
  realtimeReloadTimer=setTimeout(async()=>{
@@ -198,8 +199,41 @@ function holmQuote(i,kind){
 function say(text){if(!state.live)return;let q=$('quote');q.textContent='HOLMGREN: '+text;q.classList.remove('pulse');void q.offsetWidth;q.classList.add('pulse')}
 function toggleHolm(){state.live=!state.live;save();render();if(!state.live)$('quote').textContent='HOLMGREN: Livekommentering pausad.';else say('Jag är tillbaka i kommentatorsbåset!')}
 
-const lock={};function add(i,kind){if(!state.admin||!cloudReady)return;let m=activeM();if(!m||m.finished||activeE()?.closed){notify('Ingen öppen match.');return}let k=i+kind;if(Date.now()-(lock[k]||0)<3000)return;lock[k]=Date.now();m.s[i][kind==='g'?0:1]++;save();render();if(kind==='g'){celebrate(i);say(holmQuote(i,'g'));}else{say(holmQuote(i,'a'))}}
-function celebrate(i){let x=document.createElement('div');x.className='celebrate';let pose=POSES[i][Math.floor(Math.random()*5)];x.innerHTML=`<img src="${pose}" alt="${PEOPLE[i]} firar">`;document.body.appendChild(x);setTimeout(()=>x.remove(),2200)}
+const lock={};
+// A single saved event supplies the exact same pose and commentary to all clients.
+// The pending assist is tied to its match and expires after ten seconds.
+function add(i,kind){
+ if(!state.admin||!cloudReady)return;
+ let m=activeM();if(!m||m.finished||activeE()?.closed){notify('Ingen öppen match.');return}
+ let k=i+kind;if(Date.now()-(lock[k]||0)<3000)return;lock[k]=Date.now();
+ const now=Date.now(),matchId=m.id;
+ m.s[i][kind==='g'?0:1]++;
+ if(kind==='a'){
+  state.pendingLiveAssist={player:i,matchId,at:now};
+  save();render();return; // An assist is intentionally silent.
+ }
+ const a=state.pendingLiveAssist;
+ const assister=a&&a.matchId===matchId&&a.player!==i&&now-a.at>=0&&now-a.at<=10000?a.player:null;
+ state.pendingLiveAssist=null;
+ const poseIndex=Math.floor(Math.random()*POSES[i].length);
+ let quote=holmQuote(i,'g');
+ if(assister!==null)quote=`${PEOPLE[assister]} serverar ${PEOPLE[i]} som sätter dit den! ${quote}`;
+ const ev={id:now+'-'+Math.random().toString(36).slice(2),at:now,kind:'goal',player:i,assister,poseIndex,quote,matchId};
+ state.lastLiveEvent=ev;
+ lastSeenLiveEventId=ev.id;
+ save();render();showLiveEvent(ev);
+}
+function showLiveEvent(ev){
+ if(!ev||ev.kind!=='goal'||!Number.isInteger(ev.player)||ev.player<0||ev.player>=POSES.length)return;
+ celebrate(ev.player,ev.poseIndex);
+ if(ev.quote)say(ev.quote);
+}
+function celebrate(i,poseIndex){
+ let x=document.createElement('div');x.className='celebrate';
+ let poses=POSES[i],pose=poses[Number.isInteger(poseIndex)?poseIndex%poses.length:Math.floor(Math.random()*poses.length)];
+ let img=document.createElement('img');img.src=pose;img.alt=PEOPLE[i]+' firar';x.appendChild(img);
+ document.body.appendChild(x);setTimeout(()=>x.remove(),2200);
+}
 function modal(title,body){$('modal').innerHTML=`<div class="popup-bg" onclick="if(event.target===this)closeModal()"><div class="popup"><div class="row" style="justify-content:space-between"><h2>${title}</h2><button class="btn red" onclick="closeModal()">✕</button></div>${body}</div></div>`}function closeModal(){$('modal').innerHTML=''}
 function openEvening(){if(!state.admin){go('history');return}let e=activeE();modal('📅 Spelkväll',`<p class="muted">${e?'Pågående kväll: '+e.date:'Ingen aktiv spelkväll'}</p><label>Datum</label><input type="date" id="eveningDate" value="${new Date().toISOString().slice(0,10)}"><div class="row" style="margin-top:16px"><button class="btn green" onclick="createEvening()">Starta ny spelkväll</button>${e?'<button class="btn red" onclick="endEvening()">Avsluta spelkväll</button>':''}</div><p class="muted">En kväll kan innehålla flera turneringar och varje turnering flera matcher.</p>`)}
 function createEvening(){if(activeE()&&!confirm('En spelkväll är redan aktiv. Starta en ny?'))return;let e={id:id(),date:$('eveningDate').value||new Date().toISOString().slice(0,10),tournaments:[],closed:false};state.evenings.unshift(e);state.activeEvening=e.id;state.activeTournament=null;state.activeMatch=null;save();closeModal();render();openTournament()}
