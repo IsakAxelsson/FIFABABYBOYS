@@ -532,4 +532,77 @@ startCloud();
   else mountGlenn();
 })();
 </script>
+<!-- FIFA BABYBOYS V8: standalone champagne progress indicator; no existing logic modified -->
+<style id="bb-champagne-css">
+.bb-champagne-row{display:flex;justify-content:flex-end;padding:7px 15px 1px;pointer-events:none;min-height:86px}
+.bb-champagne-widget{display:flex;align-items:center;gap:10px;color:#ffe64e;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.4px;filter:drop-shadow(2px 3px 0 #041024)}
+.bb-champagne-caption{max-width:118px;text-align:right;line-height:1.4}
+.bb-champagne-bottle{position:relative;width:48px;height:80px;image-rendering:pixelated;flex:none}
+.bb-champagne-bottle svg{width:100%;height:100%;overflow:visible;shape-rendering:crispEdges}
+.bb-champagne-liquid{transition:height 1s ease,y 1s ease}
+.bb-champagne-bubble{animation:bb-bubble 1.9s infinite ease-in;opacity:0}
+.bb-champagne-bubble:nth-of-type(2){animation-delay:.5s}.bb-champagne-bubble:nth-of-type(3){animation-delay:1s}
+.bb-champagne-cork{transform-origin:24px 10px}
+.bb-champagne-pop .bb-champagne-cork{animation:bb-cork-fly 1.4s ease-out forwards}
+.bb-champagne-pop .bb-champagne-spray{animation:bb-spray 1.7s ease-out forwards}
+@keyframes bb-bubble{0%{transform:translateY(6px);opacity:0}30%{opacity:1}100%{transform:translateY(-27px);opacity:0}}
+@keyframes bb-cork-fly{to{transform:translate(25px,-90px) rotate(30deg);opacity:0}}
+@keyframes bb-spray{0%{opacity:0;transform:scale(.4)}30%{opacity:1}100%{opacity:0;transform:scale(1.6)}}
+@media(max-width:620px){.bb-champagne-row{min-height:74px;padding-right:5px}.bb-champagne-bottle{width:40px;height:68px}.bb-champagne-caption{font-size:9px;max-width:90px}}
+@media(prefers-reduced-motion:reduce){.bb-champagne-liquid{transition:none}.bb-champagne-bubble,.bb-champagne-pop .bb-champagne-cork,.bb-champagne-pop .bb-champagne-spray{animation:none}}
+</style>
+<script id="bb-champagne-js">
+(function(){
+'use strict';
+const stages={'Gruppspel':0,'Sextondelsfinal':0.1,'Åttondelsfinal':0.22,'Kvartsfinal':0.42,'Semifinal':0.68,'Final':0.9};
+let previousKey=null,previousWin=false,celebrated=new Set();
+function current(){
+ try{
+  if(typeof state==='undefined')return null;
+  const e=state.evenings?.find(x=>x.id===state.activeEvening);
+  const t=e?.tournaments?.find(x=>x.id===state.activeTournament);
+  return t?{e,t}:null;
+ }catch(_){return null;}
+}
+function progress(t){
+ if(t.closed&&t.won)return 1;
+ const matches=t.matches||[];
+ let phase=matches[matches.length-1]?.phase||'Gruppspel';
+ const active=matches.find(m=>m.id===state.activeMatch);
+ if(active)phase=active.phase||phase;
+ return stages[phase]??0;
+}
+function mount(){
+ const panel=document.querySelector('.scene .holm-central');
+ if(!panel)return null;
+ let row=document.getElementById('bb-champagne-row');
+ if(row&&row.previousElementSibling!==panel){row.remove();row=null;}
+ if(row)return row;
+ row=document.createElement('div');row.id='bb-champagne-row';row.className='bb-champagne-row';
+ row.setAttribute('aria-label','Champagneflaska som fylls under turneringen');
+ row.innerHTML=`<div class="bb-champagne-widget"><span class="bb-champagne-caption" id="bb-champagne-caption">CHAMPAGNE<br>VÄNTAR PÅ TURNERING</span><div class="bb-champagne-bottle" id="bb-champagne-bottle"><svg viewBox="0 0 48 80" role="img" aria-label="Champagneflaska i pixelstil"><defs><clipPath id="bb-champagne-clip"><path d="M18 20H30V35L37 47V73H11V47L18 35Z"/></clipPath></defs><path class="bb-champagne-cork" d="M19 3H29V13H19Z" fill="#bb8244" stroke="#472a24" stroke-width="2"/><path d="M17 12H31V21H17Z" fill="#f6cf50" stroke="#4d381c" stroke-width="2"/><path d="M18 20H30V35L37 47V73H11V47L18 35Z" fill="#176044" stroke="#071e23" stroke-width="3"/><g clip-path="url(#bb-champagne-clip)"><rect id="bb-champagne-liquid" class="bb-champagne-liquid" x="10" y="73" width="28" height="0" fill="#f8bb28"/><rect x="14" y="48" width="4" height="22" fill="#73bb7d" opacity=".45"/><rect class="bb-champagne-bubble" x="20" y="60" width="3" height="3" fill="#fff5aa"/><rect class="bb-champagne-bubble" x="29" y="65" width="2" height="2" fill="#fff5aa"/><rect class="bb-champagne-bubble" x="24" y="54" width="2" height="2" fill="#fff5aa"/></g><path d="M14 48H34V65H14Z" fill="#f3d44c" stroke="#4d381c" stroke-width="2"/><path d="M20 52H28V56H20Z" fill="#fff2a3"/><path d="M18 12H30V29H18Z" fill="#f2d14e" opacity=".65"/><g class="bb-champagne-spray" opacity="0" fill="#ffe45c"><rect x="4" y="5" width="5" height="5"/><rect x="36" y="8" width="5" height="5"/><rect x="12" y="0" width="4" height="4"/><rect x="33" y="0" width="3" height="3"/></g></svg></div></div>`;
+ panel.insertAdjacentElement('afterend',row);
+ return row;
+}
+function tick(){
+ const row=mount();if(!row)return;
+ const c=current();const bottle=document.getElementById('bb-champagne-bottle');
+ const caption=document.getElementById('bb-champagne-caption');const liquid=document.getElementById('bb-champagne-liquid');
+ if(!bottle||!caption||!liquid)return;
+ const key=c?c.e.id+':'+c.t.id:null;
+ const won=!!(c?.t.closed&&c?.t.won);
+ const level=c?progress(c.t):0;
+ const height=Math.round(47*level);
+ liquid.setAttribute('y',String(73-height));liquid.setAttribute('height',String(height));
+ caption.innerHTML=!c?'CHAMPAGNE<br>VÄNTAR PÅ TURNERING':won?'🏆 MÄSTARE!<br>SKÅL BABYBOYS!':level>=.9?'FINAL!<br>SNART SMÄLLER DET':level>=.68?'SEMIFINAL<br>BUBBLORNA STIGER':level>=.42?'KVARTSFINAL<br>NU BÖRJAR DET':'CHAMPAGNE<br>PÅ KYLNING';
+ if(key!==previousKey){bottle.classList.remove('bb-champagne-pop');previousWin=won;previousKey=key;}
+ else if(won&&!previousWin&&!celebrated.has(key)){
+  celebrated.add(key);bottle.classList.remove('bb-champagne-pop');void bottle.offsetWidth;bottle.classList.add('bb-champagne-pop');
+ }
+ previousWin=won;
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{tick();setInterval(tick,900)});
+else{tick();setInterval(tick,900)}
+})();
+</script>
 </body></html>
