@@ -55,7 +55,7 @@ module.exports=async function handler(req,res){
     const path='news/'+crypto.randomUUID()+'.'+ext;
     const r=await supa('/storage/v1/object/upload/sign/babyboys-news/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({upsert:false})});
     const data=await jsonResult(r);
-    return response(res,200,{path,uploadUrl:new URL(data.url,URL_BASE).toString()});
+    return response(res,200,{path,uploadUrl:new URL('/storage/v1'+(data.url.startsWith('/')?'':'/')+data.url,URL_BASE).toString()});
   }
   if(req.method==='POST'){
     const item=validateNews(body);
