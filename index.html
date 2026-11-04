@@ -58,6 +58,7 @@
    use the original yellow circular edge rather than the rectangular crop. */
 .scene .holm-central .holm-portrait{border-radius:50%!important;clip-path:circle(50% at 50% 50%)!important;overflow:hidden!important;aspect-ratio:1/1!important;background:#071a3a!important;}
 .scene .holm-central .holm-portrait img{display:block!important;width:100%!important;height:100%!important;max-width:none!important;object-fit:fill!important;object-position:center!important;border-radius:50%!important;clip-path:circle(50% at 50% 50%)!important;}
+ .bn-field[hidden]{display:none!important}
 </style>
 <style id="goteborg-theme">
 /* Göteborg-stadion är den enda bakgrunden. Alla UI-element är separata. */
@@ -334,7 +335,7 @@ body{background:#041027}
 .bn-panel{max-width:740px;margin:clamp(180px,27vw,420px) auto 12px;padding:22px;border:2px solid #e5c36d;border-radius:14px;background:rgba(4,16,44,.95);box-shadow:0 15px 45px #0009}
 .bn-panel h2{color:#ffdc77;margin:0 0 12px;text-shadow:2px 2px #432600}
 .bn-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.bn-field[hidden]{display:none!important}.bn-field{display:flex;flex-direction:column;gap:5px;margin:9px 0;font-weight:700}
+.bn-field{display:flex;flex-direction:column;gap:5px;margin:9px 0;font-weight:700}
 .bn-field input,.bn-field select,.bn-field textarea{width:100%;background:#f8f3e7;color:#171b2b;padding:10px;border:2px solid #d1ad5a;border-radius:7px}
 .bn-paper{background:#f2e8ce;color:#26221d;border:5px double #6c5230;max-width:640px;margin:20px auto;padding:14px;box-shadow:7px 9px 0 #0007}
 .bn-mast{background:#b7222d;color:white;text-align:center;font-size:clamp(19px,4vw,36px);font-weight:1000;padding:8px;letter-spacing:1px}
@@ -1135,7 +1136,10 @@ function renderNewsroom(){
  document.getElementById('sideBody').innerHTML=`
  <section class="bn-room"><div class="bn-panel">
  <h2>📰 Skapa Breaking News</h2>
- <p class="bn-info">Förhandsversion av redaktionen. Uppladdning och publicering är ännu inte anslutna till den lösenordsskyddade servern. Inget sparas.</p>
+ <p class="bn-info">Logga in med redaktionens gemensamma lösenord för att publicera nyheter.</p>
+ <label class="bn-field">Redaktionens lösenord<input id="bnPassword" type="password" autocomplete="off" placeholder="Gemensamt lösenord"></label>
+ <button type="button" class="btn" id="bnLogin">Logga in / hämta nyheter</button>
+ <p id="bnStatus" class="bn-info" role="status"></p>
  <label class="bn-field">Bild <input id="bnImage" type="file" accept="image/png,image/jpeg,image/webp"></label>
  <label class="bn-field">Rubrik (max 60 tecken)<input id="bnHeadline" maxlength="60" placeholder="KORVSKANDAL SKAKAR BABYBOYS!"></label>
  <label class="bn-field">Artikeltext (valfri, max 250 tecken)<textarea id="bnArticle" maxlength="250" rows="3" placeholder="Chockuppgifter från omklädningsrummet..."></textarea></label>
@@ -1148,9 +1152,54 @@ function renderNewsroom(){
  <div class="bn-mast">BREAKING NEWS</div><h3 id="bnPreviewTitle">DIN RUBRIK HÄR</h3>
  <img id="bnPreviewImage" alt="Förhandsgranskning av uppladdad bild" style="display:none">
  <p id="bnPreviewArticle">Din artikeltext visas här.</p></div>
- <button class="btn" type="button" disabled title="Aktiveras när säker lagring och lösenord är färdiga">Publicera – kommer i nästa steg</button>
+ <button class="btn" type="button" id="bnPublish">Publicera nyhet</button>
+ <h2>Publicerade nyheter</h2><div id="bnExisting"></div>
  </div></section>`;
  const $bn=id=>document.getElementById(id);
+ const status=(message)=>{$bn('bnStatus').textContent=message};
+ let loggedIn=false;
+ async function request(method,body){
+  const password=$bn('bnPassword').value;
+  if(!password)throw Error('Ange redaktionens lösenord.');
+  const r=await fetch('/api/news',{method,headers:{'Content-Type':'application/json','x-newsroom-password':password},...(body?{body:JSON.stringify(body)}:{})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw Error(data.error||'Serverfel ('+r.status+')');
+  return data;
+ }
+ async function refresh(){
+  const data=await request('GET');loggedIn=true;
+  const holder=$bn('bnExisting');holder.replaceChildren();
+  if(!data.news.length){holder.textContent='Inga publicerade nyheter ännu.';return}
+  data.news.forEach(n=>{
+   const item=document.createElement('div');item.className='bn-paper';
+   const title=document.createElement('h3');title.textContent=n.headline;item.append(title);
+   const desc=document.createElement('p');desc.textContent=n.article||'';item.append(desc);
+   const image=document.createElement('img');image.src='https://xcdbglfngfcmjsgkwntd.supabase.co/storage/v1/object/public/babyboys-news/'+n.image_path;image.alt='Nyhetsbild';item.append(image);
+   const btn=document.createElement('button');btn.className='btn';btn.textContent='Ta bort nyheten';
+   btn.addEventListener('click',async()=>{if(!confirm('Vill du ta bort den här nyheten?'))return;try{await request('DELETE',{id:n.id});await refresh();status('Nyheten borttagen.')}catch(e){status(e.message)}});
+   item.append(btn);holder.append(item);
+  });
+ }
+ $bn('bnLogin').addEventListener('click',async()=>{try{await refresh();status('Inloggad. Du kan nu publicera.')}catch(e){loggedIn=false;status(e.message)}});
+ $bn('bnPublish').addEventListener('click',async()=>{
+  const button=$bn('bnPublish');button.disabled=true;
+  try{
+   if(!loggedIn)await refresh();
+   const file=$bn('bnImage').files[0];if(!file)throw Error('Välj en bild först.');
+   if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>4*1024*1024)throw Error('Välj PNG, JPG eller WebP på högst 4 MB.');
+   const event=$bn('bnEvent').value, mode=BN_EVENTS.find(x=>x[0]===event)[2];
+   const headline=$bn('bnHeadline').value.trim();if(!headline)throw Error('Skriv en rubrik.');
+   status('Laddar upp bild...');
+   const signed=await request('POST',{action:'upload',mime:file.type});
+   const upload=await fetch(signed.uploadUrl,{method:'PUT',headers:{'Content-Type':file.type},body:file});
+   if(!upload.ok)throw Error('Bilduppladdningen misslyckades ('+upload.status+').');
+   status('Sparar nyheten...');
+   await request('POST',{headline,article:$bn('bnArticle').value.trim(),image_path:signed.path,trigger_type:event,trigger_player:mode==='none'?null:$bn('bnPlayer').value,trigger_other_player:mode.includes('other')?$bn('bnOther').value:null,trigger_threshold:mode.includes('count')?Number($bn('bnCount').value):null});
+   $bn('bnImage').value='';$bn('bnHeadline').value='';$bn('bnArticle').value='';
+   update();await refresh();status('Nyheten är publicerad!');
+  }catch(e){status(e.message)}finally{button.disabled=false}
+ });
+
  function update(){
   const ev=BN_EVENTS.find(x=>x[0]===$bn('bnEvent').value);
   const mode=ev[2];
