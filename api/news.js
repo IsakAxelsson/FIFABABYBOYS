@@ -1,5 +1,5 @@
 // FIFA Babyboys newsroom API. Server-only: never import into browser code.
-const URL_BASE = 'https://xcdbglfngfcmjsgkwntd.supabase.co';
+const URL_BASE = process.env.SUPABASE_URL || 'https://xcdbglfngfcmjsgkwntd.supabase.co';
 const TYPES = new Set(['evening_goals','evening_assists','evening_points','match_goals','match_assists','red_card','leader','last','random','evening_end','overtake','points_gap','consecutive_goals','evening_reds','career_goals','career_assists','match_start','first_goal']);
 const PLAYERS = new Set(['Jonatan','August','Isak']);
 const NEED_PLAYER = new Set(['evening_goals','evening_assists','evening_points','match_goals','match_assists','red_card','leader','last','overtake','points_gap','consecutive_goals','evening_reds','career_goals','career_assists','first_goal']);
@@ -55,7 +55,7 @@ module.exports=async function handler(req,res){
     const path='news/'+crypto.randomUUID()+'.'+ext;
     const r=await supa('/storage/v1/object/upload/sign/babyboys-news/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({upsert:false})});
     const data=await jsonResult(r);
-    return response(res,200,{path,uploadUrl:URL_BASE+data.url});
+    return response(res,200,{path,uploadUrl:new URL(data.url,URL_BASE).toString()});
   }
   if(req.method==='POST'){
     const item=validateNews(body);
