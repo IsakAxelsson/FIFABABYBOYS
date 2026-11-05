@@ -5,13 +5,17 @@ module.exports=async function handler(req,res){
  if(req.method!=='GET')return res.status(405).json({error:'Method not allowed'});
  const key=process.env.SUPABASE_SECRET_KEY;
  if(!base||!key)return res.status(503).json({error:'Missing configuration'});
+ const baseline=req.query.baseline==='1';
  const after=String(req.query.after||'0');
  if(!/^(0|[1-9][0-9]{0,15})$/.test(after))return res.status(400).json({error:'Invalid cursor'});
  try{
-  const url=base+'/rest/v1/babyboys_news_test_events?select=id,headline,article,image_path&id=gt.'+after+'&order=id.asc&limit=20';
+  const url=baseline
+   ? base+'/rest/v1/babyboys_news_test_events?select=id&order=id.desc&limit=1'
+   : base+'/rest/v1/babyboys_news_test_events?select=id,headline,article,image_path&id=gt.'+after+'&order=id.asc&limit=20';
   const response=await fetch(url,{headers:{apikey:key,Authorization:'Bearer '+key}});
   const rows=await response.json();
   if(!response.ok||!Array.isArray(rows))throw Error('Database '+response.status);
+  if(baseline)return res.status(200).json({events:[],latestId:rows[0]?.id||0});
   const events=[];
   for(const row of rows){
    let imageUrl=null;
