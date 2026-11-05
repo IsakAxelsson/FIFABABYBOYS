@@ -66,7 +66,7 @@
     const token=typeof sessionToken==='function'?sessionToken():null;
     if(!token){console.warn('Breaking News test: admininloggning krävs');return result;}
     fetch('/api/news-test-preview',{headers:{Authorization:'Bearer '+token},cache:'no-store'})
-     .then(async response=>{const data=await response.json();if(!response.ok)throw Error(data.error||'HTTP '+response.status);if(data.news)show(data.news)})
+     .then(async response=>{const raw=await response.text();let data;try{data=JSON.parse(raw)}catch{throw Error('Servern svarade med text (HTTP '+response.status+'): '+raw.slice(0,180))}if(!response.ok)throw Error(data.error||'HTTP '+response.status);if(data.news)show(data.news)})
      .catch(error=>{console.error('Breaking News test:',error);alert('Breaking News-test: '+error.message)});
     return result;
    };
