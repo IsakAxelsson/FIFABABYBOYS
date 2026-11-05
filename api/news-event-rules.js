@@ -16,7 +16,7 @@ function snapshot(state,eveningId,matchId){
  // Include only previously finished matches, never an in-progress match.
  const before=aggregate(matches.slice(0,index).filter(m=>m.finished));
  const after=aggregate([...matches.slice(0,index).filter(m=>m.finished),current]);
- const careerBefore=aggregate((state.evenings||[]).flatMap(ev=>matchesFor(ev)).filter(m=>m.finished&&m!==current));
+ const careerBefore=aggregate((state.evenings||[]).flatMap(ev=>matchesFor(ev)).filter(m=>m.finished&&m.id!==current.id));
  const careerAfter=careerBefore.map((a,i)=>a.map((n,j)=>n+Math.max(0,Number(current?.s?.[i]?.[j])||0)));
  return {e,current,before,after,careerBefore,careerAfter};
 }
@@ -41,8 +41,8 @@ function qualifies(n,ctx,phase){
  case 'career_goals':return crossed(count(careerBefore,idx,0),count(careerAfter,idx,0));
  case 'career_assists':return crossed(count(careerBefore,idx,1),count(careerAfter,idx,1));
  case 'first_goal':return count(before,0,0)+count(before,1,0)+count(before,2,0)===0&&count(current.s,idx,0)>0;
- case 'leader':return points(after,idx)>0&&PLAYERS.every((_,i)=>i===idx||points(after,idx)>points(after,i));
- case 'last':return PLAYERS.every((_,i)=>i===idx||points(after,idx)<points(after,i));
+ case 'leader':return points(after,idx)>0&&PLAYERS.every((_,i)=>i===idx||points(after,idx)>points(after,i))&&!PLAYERS.every((_,i)=>i===idx||points(before,idx)>points(before,i));
+ case 'last':return PLAYERS.every((_,i)=>i===idx||points(after,idx)<points(after,i))&&!PLAYERS.every((_,i)=>i===idx||points(before,idx)<points(before,i));
  case 'overtake':return other>=0&&points(before,idx)<=points(before,other)&&points(after,idx)>points(after,other);
  case 'points_gap':return other>=0&&crossed(points(before,other)-points(before,idx),points(after,other)-points(after,idx));
  // Requires goal-by-goal event history, which aggregate match statistics cannot establish.
