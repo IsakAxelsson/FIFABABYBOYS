@@ -63,7 +63,11 @@
   if(typeof originalCreateMatch==='function'){
    window.createMatch=function(...args){
     const result=originalCreateMatch.apply(this,args);
-    show({headline:'TEST – BABYBOYS I CHOCK!',article:'Testläge: matchstart upptäcktes. Detta är en simulerad nyhet – inga sparade nyheter har hämtats eller markerats som visade.'});
+    const token=typeof sessionToken==='function'?sessionToken():null;
+    if(!token){console.warn('Breaking News test: admininloggning krävs');return result;}
+    fetch('/api/news-test-preview',{headers:{Authorization:'Bearer '+token},cache:'no-store'})
+     .then(async response=>{const data=await response.json();if(!response.ok)throw Error(data.error||'HTTP '+response.status);if(data.news)show(data.news)})
+     .catch(error=>{console.error('Breaking News test:',error);alert('Breaking News-test: '+error.message)});
     return result;
    };
   }else console.warn('Breaking News test: createMatch kunde inte hittas');
