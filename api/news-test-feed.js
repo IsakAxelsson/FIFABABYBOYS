@@ -1,10 +1,10 @@
 // Public read-only feed of deliberately published test events.
-const base=process.env.SUPABASE_URL;
+const base=process.env.SUPABASE_URL||'https://xcdbglfngfcmjsgkwntd.supabase.co';
 module.exports=async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
  if(req.method!=='GET')return res.status(405).json({error:'Method not allowed'});
  const key=process.env.SUPABASE_SECRET_KEY;
- if(!base||!key)return res.status(503).json({error:'Missing configuration'});
+ if(!key)return res.status(503).json({error:'Missing configuration'});
  const baseline=req.query.baseline==='1';
  const after=String(req.query.after||'0');
  if(!/^(0|[1-9][0-9]{0,15})$/.test(after))return res.status(400).json({error:'Invalid cursor'});
