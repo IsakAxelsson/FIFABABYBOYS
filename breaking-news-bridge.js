@@ -56,6 +56,18 @@
   button.onclick=window.babyboysBreakingNewsPreview;
   document.body.append(button);
  }
+ // Safe match-start simulation: no API calls, no database claims, no secret articles.
+ // Only active in the explicit ?newsTest=1 development preview.
+ if(new URLSearchParams(location.search).get('newsTest')==='1'){
+  const originalCreateMatch=window.createMatch;
+  if(typeof originalCreateMatch==='function'){
+   window.createMatch=function(...args){
+    const result=originalCreateMatch.apply(this,args);
+    show({headline:'TEST – BABYBOYS I CHOCK!',article:'Testläge: matchstart upptäcktes. Detta är en simulerad nyhet – inga sparade nyheter har hämtats eller markerats som visade.'});
+    return result;
+   };
+  }else console.warn('Breaking News test: createMatch kunde inte hittas');
+ }
  if(!LIVE_REVEALS_ENABLED)return;
  // Live wiring is intentionally off until safe dry-run verification.
  const original=window.createMatch;
