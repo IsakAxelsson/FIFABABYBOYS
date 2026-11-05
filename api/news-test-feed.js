@@ -12,7 +12,23 @@ module.exports=async function handler(req,res){
   const response=await fetch(url,{headers:{apikey:key,Authorization:'Bearer '+key}});
   const rows=await response.json();
   if(!response.ok||!Array.isArray(rows))throw Error('Database '+response.status);
-  const events=rows.map(row=>({id:row.id,headline:row.headline,article:row.article}));
+  const events=[];
+  for(const row of rows){
+   let imageUrl=null;
+   if(row.image_path){
+    const signedResponse=await fetch(base+'/storage/v1/object/sign/babyboys-news/'+row.image_path,{
+     method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},
+     body:JSON.stringify({expiresIn:600})
+    });
+    if(!signedResponse.ok)throw Error('Image signing '+signedResponse.status);
+    const signed=await signedResponse.json();
+    if(signed.signedURL){
+     const p=signed.signedURL;
+     imageUrl=new URL(p.startsWith('/storage/v1/')?p:'/storage/v1'+(p.startsWith('/')?'':'/')+p,base).toString();
+    }
+   }
+   events.push({id:row.id,headline:row.headline,article:row.article,imageUrl});
+  }
   return res.status(200).json({events,latestId:events.length?events[events.length-1].id:Number(after)});
  }catch(error){console.error('news-test-feed',error.message);return res.status(500).json({error:'Test feed unavailable'})}
 };
