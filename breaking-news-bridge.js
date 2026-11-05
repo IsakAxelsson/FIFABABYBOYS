@@ -4,7 +4,7 @@
 */
 (()=>{
  'use strict';
- const LIVE_REVEALS_ENABLED=false;
+ const LIVE_REVEALS_ENABLED=true;
  const css=`
 @import url('https://fonts.googleapis.com/css2?family=Anton&family=Libre+Baskerville:wght@400;700&display=swap');
 .bb-news-overlay{position:fixed;inset:0;background:#000c;z-index:99999;display:flex;align-items:center;justify-content:center;padding:54px 18px 24px}
