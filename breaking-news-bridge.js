@@ -50,6 +50,12 @@
   close.onclick=dismiss;overlay.append(close,paper);document.body.append(overlay);document.addEventListener('keydown',onKey);close.focus();
  }
  window.babyboysBreakingNewsPreview=()=>show({headline:'TEST – NY MATCH!',article:'Det här är en förhandsvisning. Inga riktiga nyheter hämtas eller förbrukas.'});
+ if(new URLSearchParams(location.search).get('newsTest')==='1'){
+  const button=node('button','','📰 Testa Breaking News');
+  button.type='button';button.style.cssText='position:fixed;right:14px;bottom:14px;z-index:99998;background:#b91412;color:white;border:2px solid #fff;border-radius:8px;padding:12px;font:bold 15px system-ui;box-shadow:0 6px 20px #0008';
+  button.onclick=window.babyboysBreakingNewsPreview;
+  document.body.append(button);
+ }
  if(!LIVE_REVEALS_ENABLED)return;
  // Live wiring is intentionally off until safe dry-run verification.
  const original=window.createMatch;
