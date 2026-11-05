@@ -96,21 +96,35 @@
   }else console.warn('Breaking News test: createMatch kunde inte hittas');
  }
  if(!LIVE_REVEALS_ENABLED)return;
- // Live wiring is intentionally off until safe dry-run verification.
- const original=window.createMatch;
- if(typeof original!=='function')return;
+ // Live events: only after the queued game-state write has completed.
+ // Keep the flag disabled until the SQL migration is installed and verified.
+ const getToken=()=>typeof sessionToken==='function'?sessionToken():null;
+ const persisted=()=>Promise.resolve(typeof writeQueue!=='undefined'?writeQueue:null);
+ const claim=async(endpoint,body)=>{
+  const token=getToken();if(!token)return;
+  await persisted();
+  const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(body),cache:'no-store'});
+  if(!response.ok)throw Error(endpoint+' HTTP '+response.status);
+  const payload=await response.json();
+  if(payload.news)enqueueNews(payload.news);
+ };
+ const wrap=(name,resolve,endpoint)=>{
+  const original=window[name];if(typeof original!=='function'){console.warn('Breaking News: missing '+name);return}
+  window[name]=function(...args){
+   const context=resolve();
+   const result=original.apply(this,args);
+   if(context)claim(endpoint,context).catch(e=>console.error('Breaking News:',e));
+   return result;
+  };
+ };
+ // Match id is only assigned during createMatch, so handle that one separately.
+ const wrappedCreate=window.createMatch;
  window.createMatch=function(...args){
-  const result=original.apply(this,args);
-  const match=typeof activeM==='function'?activeM():null;
-  const evening=typeof activeE==='function'?activeE():null;
-  const token=typeof sessionToken==='function'?sessionToken():null;
-  if(match?.id&&evening?.id&&token){
-   Promise.resolve(window.writeQueue).then(async()=>{
-    const response=await fetch('/api/news-reveal',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({eveningId:evening.id,matchId:match.id})});
-    if(!response.ok)throw Error('Breaking News API '+response.status);
-    const payload=await response.json();if(payload.news)show(payload.news);
-   }).catch(err=>console.error('Breaking News:',err));
-  }
+  const result=wrappedCreate.apply(this,args);
+  const e=typeof activeE==='function'?activeE():null,m=typeof activeM==='function'?activeM():null;
+  if(e?.id&&m?.id)claim('/api/news-reveal',{eveningId:e.id,matchId:m.id}).catch(err=>console.error('Breaking News:',err));
   return result;
  };
+ wrap('saveMatch',()=>{const e=typeof activeE==='function'?activeE():null,m=typeof activeM==='function'?activeM():null;return e?.id&&m?.id?{eveningId:e.id,matchId:m.id,phase:'match_end'}:null},'/api/news-event');
+ wrap('endEvening',()=>{const e=typeof activeE==='function'?activeE():null;return e?.id?{eveningId:e.id,phase:'evening_end'}:null},'/api/news-event');
 })();
