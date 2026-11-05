@@ -16,8 +16,10 @@ function snapshot(state,eveningId,matchId){
  // Include only previously finished matches, never an in-progress match.
  const before=aggregate(matches.slice(0,index).filter(m=>m.finished));
  const after=aggregate([...matches.slice(0,index).filter(m=>m.finished),current]);
- const allMatches=(state.evenings||[]).flatMap(ev=>matchesFor(ev));
- const careerBefore=aggregate(allMatches.slice(0,allMatches.findIndex(m=>m.id===matchId)).filter(m=>m.finished));
+ // Evenings are stored newest first; earlier evenings follow the current one.
+ const eveningIndex=(state.evenings||[]).findIndex(ev=>ev.id===eveningId);
+ const previousEvenings=(state.evenings||[]).slice(eveningIndex+1).flatMap(ev=>matchesFor(ev));
+ const careerBefore=aggregate([...previousEvenings,...matches.slice(0,index)].filter(m=>m.finished));
  const careerAfter=careerBefore.map((a,i)=>a.map((n,j)=>n+Math.max(0,Number(current?.s?.[i]?.[j])||0)));
  return {e,current,before,after,careerBefore,careerAfter};
 }
