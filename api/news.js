@@ -47,8 +47,10 @@ module.exports=async function handler(req,res){
     const r=await supa('/rest/v1/babyboys_news?select=*&order=created_at.desc');
 
 const news = await jsonResult(r);
+const shown = await jsonResult(await supa('/rest/v1/babyboys_news_shown?select=news_id'));
+const used = new Set(shown.map(row => row.news_id));
 return response(res, 200, {
-  pendingCount: news.filter(n => n.is_active !== false).length
+  pendingCount: news.filter(n => n.is_active !== false && !used.has(n.id)).length
 });
 
   }
@@ -69,6 +71,10 @@ return response(res, 200, {
   }
   const id=String(body.id||req.query.id||'');
   if(!/^[0-9a-f-]{36}$/.test(id))return response(res,400,{error:'Ogiltigt nyhets-ID'});
+  // A revealed article belongs to the permanent public archive.
+  // Never allow newsroom edits or deletion to rewrite that history.
+  const shownRows=await jsonResult(await supa('/rest/v1/babyboys_news_shown?select=news_id&news_id=eq.'+id+'&limit=1'));
+  if(shownRows.length)return response(res,409,{error:'Publicerade artiklar är låsta i arkivet och kan inte ändras eller raderas'});
   if(req.method==='DELETE'){
     const r=await supa('/rest/v1/babyboys_news?id=eq.'+id,{method:'DELETE'});
     await jsonResult(r);return response(res,200,{ok:true});
