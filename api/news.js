@@ -45,7 +45,7 @@ module.exports=async function handler(req,res){
   if(!secret||typeof supplied!=='string'||!constantTimeEqual(secret,supplied))return response(res,401,{error:'Fel lösenord'});
   if(req.method==='GET'){
     const r=await supa('/rest/v1/babyboys_news?select=*&order=created_at.desc');
-    return response(res,200,{news:await jsonResult(r)});
+    const news=await jsonResult(r);\n    return response(res,200,{pendingCount:news.filter(n=>n.is_active !== false).length});
   }
   const body=req.body||{};
   if(req.method==='POST'&&body.action==='upload'){
