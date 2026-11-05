@@ -56,6 +56,31 @@
   button.onclick=window.babyboysBreakingNewsPreview;
   document.body.append(button);
  }
+ // Test-only cross-screen synchronization. Baseline excludes earlier events.
+ if(new URLSearchParams(location.search).get('newsTest')==='1'){
+  let cursor=null;
+  const pending=[];
+  let polling=false;
+  const drain=()=>{
+   if(!document.querySelector('.bb-news-overlay')&&pending.length)show(pending.shift());
+  };
+  const poll=async()=>{
+   if(polling)return;
+   polling=true;
+   try{
+    const url=cursor===null?'/api/news-test-feed?baseline=1':'/api/news-test-feed?after='+cursor;
+    const response=await fetch(url,{cache:'no-store'});
+    if(!response.ok)throw Error('Sync HTTP '+response.status);
+    const data=await response.json();
+    if(cursor!==null&&Array.isArray(data.events))pending.push(...data.events);
+    cursor=Number(data.latestId)||0;
+    drain();
+   }catch(error){console.warn('Breaking News test sync:',error.message)}
+   finally{polling=false}
+  };
+  poll();
+  setInterval(()=>{poll();drain()},2000);
+ }
  // Safe match-start simulation: no API calls, no database claims, no secret articles.
  // Only active in the explicit ?newsTest=1 development preview.
  if(new URLSearchParams(location.search).get('newsTest')==='1'){
@@ -65,8 +90,8 @@
     const result=originalCreateMatch.apply(this,args);
     const token=typeof sessionToken==='function'?sessionToken():null;
     if(!token){console.warn('Breaking News test: admininloggning krävs');return result;}
-    fetch('/api/news-test-preview',{headers:{Authorization:'Bearer '+token},cache:'no-store'})
-     .then(async response=>{const raw=await response.text();let data;try{data=JSON.parse(raw)}catch{throw Error('Servern svarade med text (HTTP '+response.status+'): '+raw.slice(0,180))}if(!response.ok)throw Error(data.error||'HTTP '+response.status);if(data.news)show(data.news)})
+    fetch('/api/news-test-publish',{method:'POST',headers:{Authorization:'Bearer '+token},cache:'no-store'})
+     .then(async response=>{const raw=await response.text();let data;try{data=JSON.parse(raw)}catch{throw Error('Servern svarade med text (HTTP '+response.status+'): '+raw.slice(0,180))}if(!response.ok)throw Error(data.error||'HTTP '+response.status);if(data.publishedId)console.info('Breaking News test event published',data.publishedId)})
      .catch(error=>{console.error('Breaking News test:',error);alert('Breaking News-test: '+error.message)});
     return result;
    };
