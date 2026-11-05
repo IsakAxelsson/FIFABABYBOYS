@@ -16,8 +16,8 @@ Source: index.html. Existing hooks: createMatch() for match-start trigger; saveM
 - Never show during active gameplay; match-start news is the explicit exception.
 - Full-screen overlay, newspaper spins and scales into position; dismiss only via close X, no timeout. Responsive approximately 85–90% viewport desktop and almost full mobile.
 - Prioritize uploaded image, show all image content without cropping including speech bubbles; tap to enlarge.
-- At most once per image per evening. For competing eligible images, randomly select among those not yet shown; next matching occurrence may select another unused image. Queue simultaneous eligible news, show sequentially on dismiss.
-- Reset used-image state at start of a new evening; avoid triggering on editing historical records.
+- Each uploaded article is permanently single-use across all evenings. It stays secret until its trigger fires, possibly weeks or months later. For competing eligible articles, randomly select one never shown before; other unused articles remain secret for future qualifying events. After reveal, the article remains permanently accessible in a public archive, but can never be triggered again. Queue simultaneous eligible reveals and show sequentially on dismiss.
+- Never reset used-article state between evenings; avoid triggering on editing historical records. The archive must never expose unrevealed articles.
 - Existing production state, layout, animation, statistics and admin auth must remain unchanged.
 
 ## Safety / deployment
