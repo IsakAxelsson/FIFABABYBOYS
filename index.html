@@ -1153,7 +1153,7 @@ function renderNewsroom(){
  <img id="bnPreviewImage" alt="Förhandsgranskning av uppladdad bild" style="display:none">
  <p id="bnPreviewArticle">Din artikeltext visas här.</p></div>
  <button class="btn" type="button" id="bnPublish">Publicera nyhet</button>
- <h2>Publicerade nyheter</h2><div id="bnExisting"></div>
+ <h2>Hemliga nyheter</h2><p class="bn-info">Efter publicering döljs nyheten även för den som skickade in den.</p><div id="bnExisting"></div>
  </div></section>`;
  const $bn=id=>document.getElementById(id);
  const status=(message)=>{$bn('bnStatus').textContent=message};
@@ -1169,16 +1169,10 @@ function renderNewsroom(){
  async function refresh(){
   const data=await request('GET');loggedIn=true;
   const holder=$bn('bnExisting');holder.replaceChildren();
-  if(!data.news.length){holder.textContent='Inga publicerade nyheter ännu.';return}
-  data.news.forEach(n=>{
-   const item=document.createElement('div');item.className='bn-paper';
-   const title=document.createElement('h3');title.textContent=n.headline;item.append(title);
-   const desc=document.createElement('p');desc.textContent=n.article||'';item.append(desc);
-   const image=document.createElement('img');image.src='https://xcdbglfngfcmjsgkwntd.supabase.co/storage/v1/object/public/babyboys-news/'+n.image_path;image.alt='Nyhetsbild';item.append(image);
-   const btn=document.createElement('button');btn.className='btn';btn.textContent='Ta bort nyheten';
-   btn.addEventListener('click',async()=>{if(!confirm('Vill du ta bort den här nyheten?'))return;try{await request('DELETE',{id:n.id});await refresh();status('Nyheten borttagen.')}catch(e){status(e.message)}});
-   item.append(btn);holder.append(item);
-  });
+  const count=Number(data.pendingCount)||0;
+  const message=document.createElement('p');message.className='bn-info';
+  message.textContent=count===0?'Inga hemliga nyheter väntar ännu.':count+' hemliga nyheter väntar på att avslöjas.';
+  holder.append(message);
  }
  $bn('bnLogin').addEventListener('click',async()=>{try{await refresh();status('Inloggad. Du kan nu publicera.')}catch(e){loggedIn=false;status(e.message)}});
  $bn('bnPublish').addEventListener('click',async()=>{
@@ -1196,7 +1190,7 @@ function renderNewsroom(){
    status('Sparar nyheten...');
    await request('POST',{headline,article:$bn('bnArticle').value.trim(),image_path:signed.path,trigger_type:event,trigger_player:mode==='none'?null:$bn('bnPlayer').value,trigger_other_player:mode.includes('other')?$bn('bnOther').value:null,trigger_threshold:mode.includes('count')?Number($bn('bnCount').value):null});
    $bn('bnImage').value='';$bn('bnHeadline').value='';$bn('bnArticle').value='';
-   update();await refresh();status('Nyheten är publicerad!');
+   update();await refresh();status('Nyheten är inskickad och hemlig!');
   }catch(e){status(e.message)}finally{button.disabled=false}
  });
 
