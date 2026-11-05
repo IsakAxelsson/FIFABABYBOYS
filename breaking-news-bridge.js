@@ -26,6 +26,9 @@
 @media(prefers-reduced-motion:reduce){.bb-news-paper{animation:none}}
 `;
  const style=document.createElement('style');style.textContent=css;document.head.append(style);
+ const queuedNews=[];
+ const showNext=()=>{if(!document.querySelector('.bb-news-overlay')&&queuedNews.length)show(queuedNews.shift());};
+ const enqueueNews=news=>{if(news){queuedNews.push(news);showNext();}};
  const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el};
  function show(news){
   if(!news||document.querySelector('.bb-news-overlay'))return;
@@ -45,7 +48,7 @@
    img.onclick=()=>{const zoom=node('div','bb-news-zoom');const big=node('img');big.src=img.src;big.alt=img.alt;zoom.append(big);document.body.append(zoom);zoom.onclick=()=>zoom.remove()};
   }
   body.append(headline,picture,story);paper.append(mast,banner,body,node('div','bb-news-footer','EXTRA • FIFA BABYBOYS • REDAKTIONEN'));
-  const dismiss=()=>{overlay.remove();document.removeEventListener('keydown',onKey)};
+  const dismiss=()=>{overlay.remove();document.removeEventListener('keydown',onKey);showNext()};
   const onKey=e=>{if(e.key==='Escape')dismiss()};
   close.onclick=dismiss;overlay.append(close,paper);document.body.append(overlay);document.addEventListener('keydown',onKey);close.focus();
  }
@@ -59,11 +62,7 @@
  // Test-only cross-screen synchronization. Baseline excludes earlier events.
  if(new URLSearchParams(location.search).get('newsTest')==='1'){
   let cursor=null;
-  const pending=[];
   let polling=false;
-  const drain=()=>{
-   if(!document.querySelector('.bb-news-overlay')&&pending.length)show(pending.shift());
-  };
   const poll=async()=>{
    if(polling)return;
    polling=true;
@@ -72,14 +71,13 @@
     const response=await fetch(url,{cache:'no-store'});
     if(!response.ok)throw Error('Sync HTTP '+response.status);
     const data=await response.json();
-    if(cursor!==null&&Array.isArray(data.events))pending.push(...data.events);
+    if(cursor!==null&&Array.isArray(data.events))data.events.forEach(enqueueNews);
     cursor=Number(data.latestId)||0;
-    drain();
    }catch(error){console.warn('Breaking News test sync:',error.message)}
    finally{polling=false}
   };
   poll();
-  setInterval(()=>{poll();drain()},2000);
+  setInterval(poll,2000);
  }
  // Safe match-start simulation: no API calls, no database claims, no secret articles.
  // Only active in the explicit ?newsTest=1 development preview.
