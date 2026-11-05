@@ -119,7 +119,7 @@
  };
  // Match id is only assigned during createMatch, so handle that one separately.
  const wrappedCreate=window.createMatch;
- window.createMatch=function(...args){
+ if(typeof wrappedCreate==='function')window.createMatch=function(...args){
   const result=wrappedCreate.apply(this,args);
   const e=typeof activeE==='function'?activeE():null,m=typeof activeM==='function'?activeM():null;
   if(e?.id&&m?.id)claim('/api/news-reveal',{eveningId:e.id,matchId:m.id}).catch(err=>console.error('Breaking News:',err));
