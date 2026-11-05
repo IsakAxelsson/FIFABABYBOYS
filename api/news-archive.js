@@ -45,8 +45,8 @@ module.exports = async function handler(req, res) {
     // Endast artiklar som redan har visats.
     const shown = await read(
       '/rest/v1/babyboys_news_shown' +
-      '?select=news_id,created_at' +
-      '&order=created_at.desc' +
+      '?select=news_id,shown_at' +
+      '&order=shown_at.desc' +
       '&limit=' + (limit + 1) +
       '&offset=' + offset
     );
@@ -113,7 +113,7 @@ module.exports = async function handler(req, res) {
           headline: item.headline,
           article: item.article,
           imageUrl,
-          publishedAt: row.created_at
+          publishedAt: row.shown_at
         };
       })
     );
