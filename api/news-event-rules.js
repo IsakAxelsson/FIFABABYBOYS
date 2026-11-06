@@ -2,6 +2,7 @@
 // Players follow the game state order: Isak, Jonatan, August.
 'use strict';
 const PLAYERS=['Isak','Jonatan','August'];
+const HIST=require('./news-historical-stats');
 const zero=()=>PLAYERS.map(()=>[0,0,0]);
 function add(dst,match){for(let i=0;i<3;i++)for(let j=0;j<3;j++)dst[i][j]+=Math.max(0,Number(match?.s?.[i]?.[j])||0);}
 function aggregate(matches){const out=zero();for(const m of matches)add(out,m);return out;}
@@ -20,6 +21,12 @@ function snapshot(state,eveningId,matchId){
  const eveningIndex=(state.evenings||[]).findIndex(ev=>ev.id===eveningId);
  const previousEvenings=(state.evenings||[]).slice(eveningIndex+1).flatMap(ev=>matchesFor(ev));
  const careerBefore=aggregate([...previousEvenings,...matches.slice(0,index)].filter(m=>m.finished));
+ // Historic 2025-2026 nights are stored separately in HIST and may be corrected in histOverrides.
+ HIST.forEach((h,i)=>{
+  const override=state.histOverrides?.[i];
+  const scores=override?.s||h[2];
+  for(let player=0;player<3;player++)for(let stat=0;stat<2;stat++)careerBefore[player][stat]+=Math.max(0,Number(scores?.[player]?.[stat])||0);
+ });
  const careerAfter=careerBefore.map((a,i)=>a.map((n,j)=>n+Math.max(0,Number(current?.s?.[i]?.[j])||0)));
  return {e,current,before,after,careerBefore,careerAfter};
 }
