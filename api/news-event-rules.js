@@ -20,7 +20,9 @@ function snapshot(state,eveningId,matchId){
  // Evenings are stored newest first; earlier evenings follow the current one.
  const eveningIndex=(state.evenings||[]).findIndex(ev=>ev.id===eveningId);
  const previousEvenings=(state.evenings||[]).slice(eveningIndex+1).flatMap(ev=>matchesFor(ev));
- const careerBefore=aggregate([...previousEvenings,...matches.slice(0,index)].filter(m=>m.finished));
+ // Match the All Time statistics view: it includes every recorded match, even if a test match was left unfinished.
+ // Exclude only the match whose milestone is being evaluated.
+ const careerBefore=aggregate([...previousEvenings,...matches.slice(0,index),...matches.slice(index+1)]);
  // Historic 2025-2026 nights are stored separately in HIST and may be corrected in histOverrides.
  HIST.forEach((h,i)=>{
   const override=state.histOverrides?.[i];
