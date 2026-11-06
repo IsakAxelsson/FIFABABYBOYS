@@ -27,8 +27,9 @@
 `;
  const style=document.createElement('style');style.textContent=css;document.head.append(style);
  const queuedNews=[];
+ const seenNewsIds=new Set();
  const showNext=()=>{if(!document.querySelector('.bb-news-overlay')&&queuedNews.length)show(queuedNews.shift());};
- const enqueueNews=news=>{if(news){queuedNews.push(news);showNext();}};
+ const enqueueNews=news=>{if(news){if(news.id&&seenNewsIds.has(news.id))return;if(news.id)seenNewsIds.add(news.id);queuedNews.push(news);showNext();}};
  const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el};
  function show(news){
   if(!news||document.querySelector('.bb-news-overlay'))return;
@@ -96,6 +97,32 @@
   }else console.warn('Breaking News test: createMatch kunde inte hittas');
  }
  if(!LIVE_REVEALS_ENABLED)return;
+ // Public archive is the cross-screen delivery channel. Establish a baseline first,
+ // so reconnecting viewers never replay old articles.
+ let archiveBaseline=null,archiveBusy=false;
+ async function pollArchive(){
+  if(archiveBusy)return;
+  archiveBusy=true;
+  try{
+   const response=await fetch('/api/news-archive?page=0',{cache:'no-store'});
+   if(!response.ok)throw Error('Archive HTTP '+response.status);
+   const data=await response.json();
+   const articles=Array.isArray(data.articles)?data.articles:[];
+   if(archiveBaseline===null){
+    archiveBaseline=new Set(articles.map(a=>a.id));
+    articles.forEach(a=>{if(a.id)seenNewsIds.add(a.id)});
+   }else{
+    const fresh=articles.filter(a=>a.id&&!archiveBaseline.has(a.id));
+    fresh.reverse().forEach(enqueueNews);
+    articles.forEach(a=>archiveBaseline.add(a.id));
+   }
+  }catch(err){console.warn('Breaking News archive sync:',err.message)}
+  finally{archiveBusy=false}
+ }
+ if(new URLSearchParams(location.search).get('newsTest')!=='1'){
+  pollArchive();
+  setInterval(pollArchive,2000);
+ }
  // Live events: only after the queued game-state write has completed.
  // Keep the flag disabled until the SQL migration is installed and verified.
  const getToken=()=>typeof sessionToken==='function'?sessionToken():null;
